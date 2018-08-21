@@ -1,3 +1,5 @@
+import sys
+
 try:
     from PyQt5.QtCore import *
     from PyQt5.QtGui import *
@@ -6,6 +8,10 @@ except ImportError:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
+try:
+    import hou
+except ImportError:
+    pass
 
 
 class SceneCutterPanel(QWidget):
@@ -14,15 +20,18 @@ class SceneCutterPanel(QWidget):
 
         self.setWindowTitle('Scene Cutter')
         self.setProperty("houdiniStyle", True)
+        self.__previousFrame = 0
 
         # Layout
         QGridLayout(self)
 
         # Buttons
         self.addCutButton = QPushButton('Add Cut')
+        self.addCutButton.clicked.connect(self.addCut)
         self.layout().addWidget(self.addCutButton, 0, 0, 1, 1)
 
         self.runButton = QPushButton('Run')
+        self.runButton.clicked.connect(self.run)
         self.layout().addWidget(self.runButton, 0, 1, 1, 1)
 
         # Table
@@ -55,6 +64,20 @@ class SceneCutterPanel(QWidget):
     def cleanup(self):
         self.table.clear()
 
+    def addCut(self):
+        itemFrom = QTableWidgetItem(str(self.__previousFrame + 1))
+        itemFrom.setFlags(itemFrom.flags() | Qt.ItemIsUserCheckable)
+        itemFrom.setCheckState(Qt.Checked)
+        itemTo = QTableWidgetItem(str(hou.intFrame()))
+        targetRow = self.table.rowCount()
+        self.table.insertRow(targetRow)
+        self.table.setItem(targetRow, 0, itemFrom)
+        self.table.setItem(targetRow, 1, itemTo)
+        self.__previousFrame = hou.intFrame()
+
+    def run(self):
+        raise NotImplementedError
+
 
 def onCreateInterface():
     global sceneCutter
@@ -65,3 +88,16 @@ def onCreateInterface():
 def onDestroyInterface():
     global sceneCutter
     sceneCutter.cleanup()
+
+
+if __name__ == '__main__':
+    def my_excepthook(type, value, tback):
+        sys.__excepthook__(type, value, tback)
+
+
+    sys.excepthook = my_excepthook
+
+    app = QApplication([])
+    window = SceneCutterPanel()
+    window.show()
+    sys.exit(app.exec_())
